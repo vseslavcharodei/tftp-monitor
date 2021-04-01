@@ -167,28 +167,28 @@ NODE_IP
 2. Check if the system log file that script is going to check for TFTP-Rejected messages is available (mounted into Pod and can be opened for reading).
 Finish with error if file is not available, so Kubernetes will restart Pod where script is running.
 3. Extract data from log and look for any appearance of LOG messages about TFTP connection rejection from kernel:
-- script add information about source IP addresses and counts of rejected connections;
+- script adds information about source IP addresses and counts of rejected connections;
 - script takes only last $nlines lines from the syslog file in order to speed up the lookup.
   
-> NOTE: If in your case script cannot find brute-force attempt, however, you are seeing this attempts in syslog it may be related to the fact that your system logs a lot of messages per second and script simply cannot find defined time gap in $nlines last lines of system log file.
-> In this case consider increasing this parameter, so script will be able to find brute-force attempts in the log
+> NOTE: If in your case script cannot find brute-force attempt, however, you are seeing this attempts in syslog it may be related to the fact that your Host OS logs a lot of messages per second to the system log and script simply cannot find attempts in N last lines of system log file.
+> In this case consider increasing $nlines parameter, so script will be able to find brute-force attempts in the log
   
-4. Script evaluates if any TFTP connections was rejected due to the fact that TFTP connections rate exceeds the limit defined in firewall:
+4. Script evaluates if any TFTP connections were rejected due to the fact that TFTP connections rate exceeds the limit defined in firewall:
 - if any attempts were found script composes email with report and send it to external email address:
 > NOTE: if remote SMTP server for sending alert to recepient is not available, script exits with error, so, Kubernetes will restart the Job immidiately;
-- if attempts are not detected script prints appropriate message to the STDOUT and predefined log file on Host machine and finishes without errors.
----
->Script is able to print log messages into STDOUT and log file on Host machine mounted as volume to the Pod (see func **log()**):
->- in case log is not available, script will only prints log messages to STDOUT
+- if attempts are not detected script prints appropriate message to the STDOUT and predefined log file on Host machine, then finishes.
+
+Script is able to print log messages into STDOUT and log file on Host machine mounted as volume to the Pod (see func **log()**).
+>In case log is not available, script will only prints log messages to STDOUT
 
 -------------------------
 ### Choose testing envinronment:
 
-Considering that I do not need a real cluster/quorum with a few nodes for the task, to make test setup faster, I've chosen minikube, as it is:
+Considering that I do not need a real cluster with a few nodes for this task, I've decided to choose **minikube**, as it is:
 - simple (in comparison to KIND);
-- lightweight one node Kubernetes cluster that can be used for test purposes.
+- lightweight (one node Kubernetes cluster that can be used for test purposes).
 
-Also, it has a large community, most probably I'll be able to find a solution to any issue that I'll get with installation and deployment.
+Also, it has a large community, so most probably I'll be able to find a solution to any issue that I'll get with installation and deployment.
 
 -------------------------
 ### How to make a Kubernetes deployment:
@@ -347,7 +347,7 @@ $ ls -lah /host_logs/mon_logs/tftp_monitor.log
 -rw-rw-rw- 1 docker docker 48K Mar 30 22:28 /host_logs/mon_logs/tftp_monitor.log
 ```
 
-**2. Create configmap using created monitoring script:**
+**2. Create ConfigMap using created monitoring script:**
 
 In order to run script inside a Pod that starts container, there are two options:
 1. Add your script into the container using Docker file. Then you will be able to build image from that container and configure Pod in Kubernetes using this image that will include your custom script.
@@ -377,7 +377,7 @@ kubectl create configmap tftp-monitor --from-file=tftp-monitor.sh -o yaml --dry-
 
 **Create CronJob resource that will execute script that is added to ConfigMap:**
 ```
-# API version where cronjobs were introduced should be specified here:
+# API version where cronjobs are introduced should be specified here:
 # https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/ (see FEATURE STATE)
 apiVersion: batch/v1beta1
 # Kind name to Create CronJob resource
@@ -390,7 +390,6 @@ metadata:
 spec:
 # Schedule Job execution every 1 min
 # The schedule for CronJob should be set in conjuction with $nlines in tftp-monitor.sh script.
-# It should be set depending on frequency of writes to the system log.
   schedule: "*/1 * * * *"
 # Number of succefully completed pods saved by crobjob, so admin can check its logs inside of kubernetes
   successfulJobsHistoryLimit: 6
@@ -412,8 +411,8 @@ spec:
 # I've decided to use busybox docker image as an execution env for the script. It is lightweight container and contains all required utilities for monitoring script
             image: busybox
 # Define volumes that should be mount to the container
-# host-logs volume that contains system log that should be checked by the script and log file for script
-# tftp-monitor volume that contains script executable
+# host-logs - volume that contains system log that should be checked by the script and log file for script
+# tftp-monitor - volume that contains script executable
             volumeMounts:
               - name: host-logs
                 mountPath: /host_logs/
@@ -421,8 +420,8 @@ spec:
                 mountPath: /mon_scripts/
 # Specifying env variables required for scipt execution:
 # I've decided to use these to show one more way of defining variables for the script that is executed inside of container.
-# Env variables are useful if you run several scripts in one container. In that case if you need to check some variable used in all the script, you don't need to update all your scripts
-# because you can simply modify variables inside a spec file
+# Env variables are useful if you run several scripts in one container. In that case if you need to check some variable used in all the script, you don't need to update all your 
+# scripts. Instead, you can simply modify variables inside a spec file:
             env:
               - name: NODE_IP
                 value: "192.168.99.1"
@@ -447,7 +446,7 @@ spec:
 
 **Check script execution:**
 
-In order to ensure that CronJob resource is created successfully use the following commands:
+To ensure that CronJob resource is created successfully use the following commands:
 ```
 kubectl get cronjobs
 NAME                         SCHEDULE      SUSPEND   ACTIVE   LAST SCHEDULE   AGE
@@ -478,12 +477,12 @@ cronjob.batch/tftp-monitor   */5 * * * *   False     0        2m42s           10
 As you can see during execution CronJob creates the corresponding Job according to schedule.
 Appropriate Job creates the corresponding Pod that executes script mounted from ConfigMap specified as a volume in tftp-monitor.yaml.
 
-Using the above command you can see the status of executed Job/Pod - **Completed** means that Job/Pod has been finished successfully, other states that you may see:
+Using the above command you can see a status of executed Job/Pod - **Completed** means that Job/Pod has been finished successfully, other states that you may see:
 **Error** - pod was executed, but command finished with non-zero error code;
 **CrashLoopBackOff** - Pod is tried to start, then finished with error, that started again;
 **Running** - Pod is running
 
-You can check everything that the monitoring script prints to STDOUT during execution inside Pod:
+You can check everything that the monitoring script prints to STDOUT during execution inside a Pod:
 ```
 # logs can be retrieved using kubernetes API for all runs in a batch:
 # get all pods names with lable app=tftp-monitor, print only names:
@@ -497,7 +496,7 @@ kubectl logs <pod_name>
 Considering that tftp-monitor.sh also prints data to log located in /var/log/mon_logs/tftp_monitor.log (by default) you can check this log on the Host machine.
 It will contain all history for every script run.
 
-Example of log output for run when Brute-force is not detected:
+Example of log output when Brute-force is not detected:
 ```
 kubectl logs tftp-monitor-1617226500-w6d5z
 Mar 31 21:35:09: Start script /mon_scripts/tftp-monitor.sh
@@ -505,7 +504,7 @@ Mar 31 21:35:09: Checked file: /host_logs/syslog exists. Proceed with TFTP check
 Mar 31 21:35:09: Brute-force atteampts have not been detected!
 ```
 
-Example of log output for run when Brute-force is detected:
+Example of log output when Brute-force is detected:
 ```
 Mar 31 22:00:07: Start script /mon_scripts/tftp-monitor.sh
 Mar 31 22:00:07: Checked file: /host_logs/syslog exists. Proceed with TFTP check.
