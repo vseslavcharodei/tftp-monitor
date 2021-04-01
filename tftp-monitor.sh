@@ -30,13 +30,14 @@ else
     exit 1 #here cronjob pod will get Error status and will be restarted by controller according to restartPolicy specified in job template
 fi
 
-# Check if there was any attempts to access TFTP on host machine over the allowed rate in the last N lines of log:
+# Check if there were any attempts to access TFTP on host machine over the allowed rate in the last N lines of log:
 tftp_stats=$(\
     tail -${nlines} ${log_file}|\
+	grep "IPTables-TFTP-Rejected"|\
     awk -F "SRC=" '{print $2}'|\
-        sed '/^$/d'|\
-        awk -F " DST=" '{print $1}'|\
-        sort|uniq -c|sort -k 1\
+    sed '/^$/d'|\
+    awk -F " DST=" '{print $1}'|\
+    sort|uniq -c|sort -k 1\
 )
 
 # If brute-force attempts have not been detected, just print log message
