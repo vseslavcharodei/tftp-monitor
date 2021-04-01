@@ -22,7 +22,7 @@ To make deploy a script the following things are essential:
 # Define new chain:
 sudo iptables -N tftp_protector
 # Insert chain into default INPUT
--A INPUT ! -i lo -p udp -m udp --dport 69 -j tftp_protector
+sudo iptables -A INPUT ! -i lo -p udp -m udp --dport 69 -j tftp_protector
 # accept avarage 10 TFTP connections per minute (--limit 10/min), drop connections when limit is reached.
 # 10 simulateous connections are allowed by (--limit-burst 10)
 # if connection rate is more than 10/min, log this messages to syslog and then, reject:
