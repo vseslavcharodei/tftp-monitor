@@ -1,0 +1,67 @@
+# API version where cronjobs were introduced should be specified here:
+# https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/ (see FEATURE STATE)
+apiVersion: batch/v1beta1
+# Kind name to Create CronJob resource
+kind: CronJob
+metadata:
+  name: tftp-monitor
+# lables here and below in container description are used to simplify CronJob management and all resources created by this CronJob
+  labels:
+    app: tftp-monitor
+spec:
+# Schedule Job execution evety 5 min
+# Remember we've specified $date_from in log now-5min in our script?
+# The schedule for CronJob should be the same as the time gap specified inside of the script.
+# Alternatively it  might be less, but not grater. Othervise, script might not detect some brute-force attempts.
+  schedule: "*/5 * * * *"
+# Number of succefully completed pods saved by crobjob, so admin can check its logs inside of kubernetes
+  successfulJobsHistoryLimit: 6
+# Number of succefully completed pods saved by crobjob, so admin can check its logs inside of kubernetes
+  failedJobsHistoryLimit: 6
+  jobTemplate:
+    spec:
+# If restartPolicy is not Never, it shows the number of times failed Pod will be restarted inside of a Job, before it will be considered as failed.
+      backoffLimit: 2
+# Once a Job is running for 60 sec, all of its running Pods will be terminated and Job will become failed even if backoffLimit is not reached
+      activeDeadlineSeconds: 60
+      template:
+        metadata:
+          labels:
+            app: tftp-monitor
+        spec:
+          containers:
+          - name: tftp-monitor
+# I've decided to use busybox docker image as an execution env for the script. It is lightweight container and contains all required utilities for monitoring script
+            image: busybox
+# Define volumes that should be mount to the container
+# host-logs volume that contains system log that should be checked by the script and log file for script
+# tftp-monitor volume that contains script executable
+            volumeMounts:
+              - name: host-logs
+                mountPath: /host_logs/
+              - name: tftp-monitor
+                mountPath: /mon_scripts/
+# Specifying env variables required for scipt execution:
+# I've decided to use these to show one more way of defining variables for the script that is executed inside of container.
+# Env variables are useful if you run several scripts in one container. In that case if you need to check some variable used in all the script, you don't need to update all your scripts
+# because you can simply modify variables inside a spec file
+            env:
+              - name: NODE_IP
+                value: "192.168.99.1"
+              - name: REMOTE_SMTP_IP
+                value: "192.168.1.23"
+              - name: REMOTE_SMTP_PORT
+                value: "25"
+            command: ["/mon_scripts/tftp-monitor.sh"]
+          restartPolicy: OnFailure
+# Define volumes that should be provided to Pod created by Job:
+          volumes:
+# host-logs - should be hostPath type to mount directory from Host node to allow Pod: read data from system log and write data to monitoring log
+            - name: host-logs
+              hostPath:
+                path: /host_logs/
+# tftp-monitor - should be configMap type, to inject executable script into a Pod created by Job. Esential point to get script executable is to specify defaultMode to make script executable for owner of the file (docker user inside of container).
+            - name: tftp-monitor
+              configMap:
+                name: tftp-monitor
+                defaultMode: 0744
