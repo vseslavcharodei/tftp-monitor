@@ -71,9 +71,9 @@ tftp_stats=$(\
     tail -${nlines} ${log_file}|\
     grep "IPTables-TFTP-Rejected"|\
     awk -F "SRC=" '{print $2}'|\
-        sed '/^$/d'|\
-        awk -F " DST=" '{print $1}'|\
-        sort|uniq -c|sort -k 1\
+    sed '/^$/d'|\
+    awk -F " DST=" '{print $1}'|\
+    sort|uniq -c|sort -k 1\
 )
 
 # If brute-force attempts have not been detected, just print log message
@@ -355,7 +355,7 @@ In order to run script inside a Pod that starts container, there are two options
 
 I've chosen the second approach as it supports making changes to the script on the fly without the necessity of making a new version of Docker image every time I would like to make changes to the script.
 
-**1. Create ConfigMap to mount the script in future**
+**Create ConfigMap to mount the script in future**
 ```
 # Create configmap
 cd /data/kube_lab/test_case/
@@ -375,7 +375,7 @@ kubectl edit configmaps tftp-monitor
 kubectl create configmap tftp-monitor --from-file=tftp-monitor.sh -o yaml --dry-run=client|kubectl replace -f -
 ```
 
-**2. Create CronJob resource that will execute script that is added to ConfigMap:**
+**Create CronJob resource that will execute script that is added to ConfigMap:**
 ```
 # API version where cronjobs were introduced should be specified here:
 # https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/ (see FEATURE STATE)
@@ -445,7 +445,7 @@ spec:
                 defaultMode: 0744
 ```
 
-**3. Check script execution:**
+**Check script execution:**
 
 In order to ensure that CronJob resource is created successfully use the following commands:
 ```
