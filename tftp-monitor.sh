@@ -1,8 +1,11 @@
 #!/bin/sh
 
-# Check if there was any attempts to access TFTP on host machine over the allowed rate for last 5 min:
-date_from=$(date -d @"$(( $(date +%"s")-5*60 ))" +"%b %d %T")
-date_to=$(date "+%b %d %T")
+# Define variables:
+# nlines - number of lines script should check from the end of the file for any detected attempts to connect to TFTP over defined limit
+# Modify nlines in conjuction with schedule of the script depending on the frequency of log messages writes to syslog
+# log_file - log file that should be checked
+# monitor_log_file - file where script should redirect its output
+nlines=100
 log_file="/host_logs/syslog"
 monitor_log_file="/host_logs/mon_logs/tftp_monitor.log"
 
@@ -27,9 +30,10 @@ else
     exit 1 #here cronjob pod will get Error status and will be restarted by controller according to restartPolicy specified in job template
 fi
 
+# Check if there was any attempts to access TFTP on host machine over the allowed rate in the last N lines of log:
 tftp_stats=$(\
-    tail -100 ${log_file}|\
-    awk -F "SRC=" -v date_from="${date_from}" -v date_to="${date_to}" '$0 > date_from && $0 < date_to || $0 ~ date_to {print $2}'|\
+    tail -${nlines} ${log_file}|\
+    awk -F "SRC=" '{print $2}'|\
         sed '/^$/d'|\
         awk -F " DST=" '{print $1}'|\
         sort|uniq -c|sort -k 1\
