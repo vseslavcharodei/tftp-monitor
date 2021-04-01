@@ -12,7 +12,7 @@ For this purpose, I've used CronJob controller that allows running script inside
 
 ### Prerequsites:
 
-To make deploy a script the following things are essential:
+To make the script work the following things are essential:
 
 1. Linux test environment.
 2. Time-zone on Host machine that will run Kubernetes deployment should have the same timezone as Kubernetes deployment (minikube VM in my case).
