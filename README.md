@@ -16,7 +16,7 @@ To make the script work the following things are essential:
 
 1. Linux test environment.
 2. Time-zone on Host machine that will run Kubernetes deployment should have the same timezone as Kubernetes deployment (minikube VM in my case).
-3. Simple TFTP server configured on the host machine where Kubernetes will be deployed.
+3. Simple TFTP server is configured on the host machine where Kubernetes will be deployed.
 4. Configured TFTP server firewall. Can be done in the following way:
 ```
 # Define new chain:
