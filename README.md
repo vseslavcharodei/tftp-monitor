@@ -36,9 +36,12 @@ sudo iptables -A tftp_protector -p udp -m udp --dport 69 -j REJECT --reject-with
 ```
 #!/bin/sh
 
-# Check if there was any attempts to access TFTP on host machine over the allowed rate for last 5 min:
-date_from=$(date -d @"$(( $(date +%"s")-5*60 ))" +"%b %d %T")
-date_to=$(date "+%b %d %T")
+# Define variables:
+# nlines - number of lines script should check from the end of the file for any detected attempts to connect to TFTP over defined limit
+# Modify nlines in conjuction with schedule of the script depending on the frequency of log messages writes to syslog
+# log_file - log file that should be checked
+# monitor_log_file - file where script should redirect its output
+nlines=100
 log_file="/host_logs/syslog"
 monitor_log_file="/host_logs/mon_logs/tftp_monitor.log"
 
@@ -63,9 +66,10 @@ else
     exit 1 #here cronjob pod will get Error status and will be restarted by controller according to restartPolicy specified in job template
 fi
 
+# Check if there were any attempts to access TFTP on host machine over the allowed rate in the last N lines of log:
 tftp_stats=$(\
-    tail -100 ${log_file}|\
-    awk -F "SRC=" -v date_from="${date_from}" -v date_to="${date_to}" '$0 > date_from && $0 < date_to || $0 ~ date_to {print $2}'|\
+    tail -${nlines} ${log_file}|\
+    awk -F "SRC=" '{print $2}'|\
         sed '/^$/d'|\
         awk -F " DST=" '{print $1}'|\
         sort|uniq -c|sort -k 1\
@@ -78,11 +82,10 @@ if [ -z "$tftp_stats" ]; then
 else
     log "Brute-force atteampts have been detected!"
     log "Here is the statistics:"
-    log "$tftp_stats"
+	log "$tftp_stats"
 
     ## REMOTE_SMTP_IP, REMOTE_SMTP_PORT, NODE_IP may be different from node to node where the script is deployed, so decided to put this as env variables
-    ## - but the main reason is show that I've also considered how variables can be passed to scripts in Kubernetes
-    ## Env variables are useful if you run several scripts in one container. In that case if you need to check some variable used in all the script, you don't need to update all your scripts
+    ##  - but the main reason is show that I've also considered how variables can be passed to scripts in Kubernetes
 
     # Check for remote_smtp availability
 	log "Checking if remote SMPT ${REMOTE_SMTP_IP}:${REMOTE_SMTP_PORT} is available."
@@ -93,7 +96,7 @@ else
         log "Composing and sending email alert."
 
         # Compose and send email:
-        email_to="kubernetes-admin@gmail.com"
+        email_to="admin-kubernetes@gmail.com"
         email_from="root@tftp-monitor"
         sbj="TFPT brute-force is detected on $NODE_IP"
 
@@ -127,12 +130,10 @@ fi
 **Variables that can be changed:**
 
 ```
-# Defines time gap that script checks system log for detected brute-force attempts:
-# Current values:
-# date_to - now.
-# date_from - now - 5min
-date_from=$(date -d @"$(( $(date +%"s")-5*60 ))" +"%b %d %T")
-date_to=$(date "+%b %d %T")
+# Number of lines script should check from the end of the file for any detected attempts to connect to TFTP over defined limit
+# Modify nlines in conjuction with schedule of the script depending on the frequency of log messages writes to syslog
+nlines=100
+
 # File on host machine that shell be checked by the script
 # you should specify here the mount pass of the host directory inside of Pod/container
 log_file="/host_logs/syslog"
@@ -142,7 +143,7 @@ log_file="/host_logs/syslog"
 monitor_log_file="/host_logs/mon_logs/tftp_monitor.log"
  
 # Email that shell receive monitoring alerts:
-email_to="kubernetes-admin@gmail.com"
+email_to="admin-kubernetes@gmail.com"
  
 # Email From that will be used to send alert via email
 email_from="root@tftp-monitor"
@@ -161,15 +162,15 @@ NODE_IP
 
 **Monitoring script workflow:**
 
-1. Define time gap that should be checked in the system log of the Host machine to find out if there were detected attempts to connect to TFTP over defined limit.
+1. Number of lines from the end of the system log of the Host machine to find out if there were detected attempts to connect to TFTP over defined limit.
 2. Check if log file that script is going to check for TFTP-Rejected messages is available (mounted into Pod and can be opened for reading).
 Finish with error if file is not available, so Kubernetes will restart Pod where script is running.
-3. Extract data from log for defined time gap and look for any appearance of LOG messages about TFTP connection rejection from kernel:
+3. Extract data from log and look for any appearance of LOG messages about TFTP connection rejection from kernel:
 - script add information about source IP addresses and counts of rejected connections;
-- script takes only last 100 lines from the syslog file in order to speed up the lookup.
+- script takes only last $nlines lines from the syslog file in order to speed up the lookup.
   
-> NOTE: If in your case script cannot find brute-force attempt, however, you are seeing this attempts in syslog it may be related to the fact that your system logs a lot of messages per second and script simply cannot find defined time gap in 100 last lines of system log file.
-> In this case consider increasing this parameter, so script will be able to find defined time gap in the log
+> NOTE: If in your case script cannot find brute-force attempt, however, you are seeing this attempts in syslog it may be related to the fact that your system logs a lot of messages per second and script simply cannot find defined time gap in $nlines last lines of system log file.
+> In this case consider increasing this parameter, so script will be able to find brute-force attempts in the log
   
 4. Script evaluates if any TFTP connections was rejected due to the fact that TFTP connections rate exceeds the limit defined in firewall:
 - if any attempts were found script composes email with report and send it to external email address:
