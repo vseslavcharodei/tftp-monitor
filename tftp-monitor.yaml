@@ -9,11 +9,10 @@ metadata:
   labels:
     app: tftp-monitor
 spec:
-# Schedule Job execution evety 5 min
-# Remember we've specified $date_from in log now-5min in our script?
-# The schedule for CronJob should be the same as the time gap specified inside of the script.
-# Alternatively it  might be less, but not grater. Othervise, script might not detect some brute-force attempts.
-  schedule: "*/5 * * * *"
+# Schedule Job execution every 1 min
+# The schedule for CronJob should be set in conjuction with $nlines in tftp-monitor.sh script.
+# It should be set depending on frequency of writes to the system log.
+  schedule: "*/1 * * * *"
 # Number of succefully completed pods saved by crobjob, so admin can check its logs inside of kubernetes
   successfulJobsHistoryLimit: 6
 # Number of succefully completed pods saved by crobjob, so admin can check its logs inside of kubernetes
