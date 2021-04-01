@@ -310,7 +310,7 @@ Now, you are ready to configure Kubernetes running TFTP monitoring script.
 -------------------------
 ### Deploy and run monitoring script using CronJob controller
 
-**1. Mount Host directory that stores system log that should be monitored by the script to minikube VM:**
+**1. Mount Host directory that stores system log to minikube VM:**
 
 In order to allow Pods access to the host machine file system (FS), we should mount it first as a shared directory to minikube VM.
 
