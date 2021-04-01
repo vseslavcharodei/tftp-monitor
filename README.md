@@ -69,6 +69,7 @@ fi
 # Check if there were any attempts to access TFTP on host machine over the allowed rate in the last N lines of log:
 tftp_stats=$(\
     tail -${nlines} ${log_file}|\
+    grep "IPTables-TFTP-Rejected"|\
     awk -F "SRC=" '{print $2}'|\
         sed '/^$/d'|\
         awk -F " DST=" '{print $1}'|\
@@ -354,6 +355,7 @@ In order to run script inside a Pod that starts container, there are two options
 
 I've chosen the second approach as it supports making changes to the script on the fly without the necessity of making a new version of Docker image every time I would like to make changes to the script.
 
+**1. Create ConfigMap to mount the script in future**
 ```
 # Create configmap
 cd /data/kube_lab/test_case/
@@ -373,15 +375,8 @@ kubectl edit configmaps tftp-monitor
 kubectl create configmap tftp-monitor --from-file=tftp-monitor.sh -o yaml --dry-run=client|kubectl replace -f -
 ```
 
-8. Create CronJob resource that will execute script that is added to ConfigMap:
+**2. Create CronJob resource that will execute script that is added to ConfigMap:**
 ```
-# Create resource from file:
-kubectl create -f tftp-monitor.yaml
-
-
-# Content of tftp-monitor.yaml
-tftp-monitor.yaml:
-
 # API version where cronjobs were introduced should be specified here:
 # https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/ (see FEATURE STATE)
 apiVersion: batch/v1beta1
@@ -389,22 +384,21 @@ apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
   name: tftp-monitor
-# labels here and below in container description are used to simplify CronJob management and all resources created by this CronJob
+# lables here and below in container description are used to simplify CronJob management and all resources created by this CronJob
   labels:
     app: tftp-monitor
 spec:
-# Schedule Job execution every 5 min
-# Remember we've specified $date_from in log now-5min in our script?
-# The schedule for CronJob should be the same as the time gap specified inside of the script.
-# Alternatively it might be less, but not greater. Otherwise, script might not detect some brute-force attempts.
-  schedule: "*/5 * * * *"
-# Number of successfully completed pods saved by cron job, so admin can check its logs inside of kubernetes
+# Schedule Job execution every 1 min
+# The schedule for CronJob should be set in conjuction with $nlines in tftp-monitor.sh script.
+# It should be set depending on frequency of writes to the system log.
+  schedule: "*/1 * * * *"
+# Number of succefully completed pods saved by crobjob, so admin can check its logs inside of kubernetes
   successfulJobsHistoryLimit: 6
-# Number of successfully completed pods saved by crobjob, so admin can check its logs inside of kubernetes
+# Number of succefully completed pods saved by crobjob, so admin can check its logs inside of kubernetes
   failedJobsHistoryLimit: 6
   jobTemplate:
     spec:
-# If restartPolicy is not Never, it shows the number of times failed Pod will be restarted inside of a Job, before it will be considered as failed
+# If restartPolicy is not Never, it shows the number of times failed Pod will be restarted inside of a Job, before it will be considered as failed.
       backoffLimit: 2
 # Once a Job is running for 60 sec, all of its running Pods will be terminated and Job will become failed even if backoffLimit is not reached
       activeDeadlineSeconds: 60
@@ -425,9 +419,9 @@ spec:
                 mountPath: /host_logs/
               - name: tftp-monitor
                 mountPath: /mon_scripts/
-# Specifying env variables required for script execution:
+# Specifying env variables required for scipt execution:
 # I've decided to use these to show one more way of defining variables for the script that is executed inside of container.
-# Env variables are useful if you run several scripts in one container. In that case, if you need to check some variable used in all the script, you don't need to update all your scripts
+# Env variables are useful if you run several scripts in one container. In that case if you need to check some variable used in all the script, you don't need to update all your scripts
 # because you can simply modify variables inside a spec file
             env:
               - name: NODE_IP
@@ -444,14 +438,14 @@ spec:
             - name: host-logs
               hostPath:
                 path: /host_logs/
-# tftp-monitor - should be configMap type, to inject executable script into a Pod created by Job. Essential point to get script executable is to specify defaultMode to make script executable for owner of the file (docker user inside of container).
+# tftp-monitor - should be configMap type, to inject executable script into a Pod created by Job. Esential point to get script executable is to specify defaultMode to make script executable for owner of the file (docker user inside of container).
             - name: tftp-monitor
               configMap:
                 name: tftp-monitor
                 defaultMode: 0744
 ```
 
-3. Check script execution:
+**3. Check script execution:**
 
 In order to ensure that CronJob resource is created successfully use the following commands:
 ```
