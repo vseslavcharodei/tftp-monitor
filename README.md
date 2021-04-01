@@ -163,8 +163,8 @@ NODE_IP
 
 **Monitoring script workflow:**
 
-1. Number of lines from the end of the system log of the Host machine to find out if there were detected attempts to connect to TFTP over defined limit.
-2. Check if log file that script is going to check for TFTP-Rejected messages is available (mounted into Pod and can be opened for reading).
+1. Define number of lines that should be checked from the end of the system log file.
+2. Check if the system log file that script is going to check for TFTP-Rejected messages is available (mounted into Pod and can be opened for reading).
 Finish with error if file is not available, so Kubernetes will restart Pod where script is running.
 3. Extract data from log and look for any appearance of LOG messages about TFTP connection rejection from kernel:
 - script add information about source IP addresses and counts of rejected connections;
