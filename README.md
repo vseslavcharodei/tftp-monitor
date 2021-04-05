@@ -54,11 +54,13 @@ Script finishes with exit code '1' if the file is not available, so Kubernetes w
 > NOTE: if remote SMTP server for sending alert to recepient is not available, script exits with error, so, Kubernetes will restart the Job immidiately;
 - if attempts are not detected script prints appropriate message to the STDOUT and predefined log file on Host machine, then finishes.
 
-Script is able to print log messages into STDOUT and log file on Host machine mounted as volume to the Pod (see func **log()**).
+>Script is able to print log messages into **STDOUT** and **log file** on Host machine mounted as volume to the Pod (see func **log()**).
 >In case log is not available, script will only prints log messages to STDOUT
 
-**Video demonstration of script main flow:**
-https://user-images.githubusercontent.com/11047963/113568937-38ba9480-961a-11eb-93fa-b34e8c514556.mp4
+
+> **Video demonstration of script main flow:**
+> https://user-images.githubusercontent.com/11047963/113568937-38ba9480-961a-11eb-93fa-b34e8c514556.mp4
+
 
 
 **Variables description:**
